@@ -23,15 +23,24 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 public class JTar {
 	private static int DEFAULT_BUFFER_SIZE = 4096;
 
 	public void unpackTar(String pathToTar, String pathToTargetDir) throws IOException {
-		unpackFromStream(checkAndReturnFile(pathToTar), new File(pathToTargetDir), new InputStreamForTar());
+		unpackFromStream(new TarInputStreamForTar(pathToTar), new File(pathToTargetDir));
+	}
+	
+	public void unpackTarFromStream(ITarInputStreamFactory factory, String pathToTargetDir) throws IOException {
+		unpackFromStream(factory, new File(pathToTargetDir));
 	}
 
+	public void unpackTarGz(String pathToTarGz, String pathToTargetDir) throws IOException {
+		unpackFromStream(new TarInputStreamForTarGz(pathToTarGz), new File(pathToTargetDir));
+	}
+	
 	private File checkAndReturnFile(String pathToTar) {
 		File file = new File(pathToTar);
 		if (!file.exists()) {
@@ -46,15 +55,11 @@ public class JTar {
 		return file;
 	}
 	
-	public void unpackTarGz(String pathToTarGz, String pathToTargetDir) throws IOException {
-		unpackFromStream(checkAndReturnFile(pathToTarGz), new File(pathToTargetDir), new InputStreamForTarGz());
-	}
-	
-	private void unpackFromStream(File tar, File targetDir, IInputStreamCreator streamCreator) throws IOException {
+	private void unpackFromStream(ITarInputStreamFactory streamCreator, File targetDir) throws IOException {
 		targetDir.mkdirs();
 		TarInputStream tis = null;
 		try {
-			tis = streamCreator.getStream(tar);
+			tis = streamCreator.getStream();
 			extractAll(tis, targetDir);
 		} finally {
 			if (tis != null) {
@@ -63,23 +68,35 @@ public class JTar {
 		}
 	}
 
-	interface IInputStreamCreator {
-		TarInputStream getStream(File tar) throws IOException;
+	interface ITarInputStreamFactory {
+		TarInputStream getStream() throws IOException;
 	}
 	
-	class InputStreamForTar implements IInputStreamCreator {
+	class TarInputStreamForTar implements ITarInputStreamFactory {
+		File tar;
+		
+		public TarInputStreamForTar(String pathToTar) {
+			tar = checkAndReturnFile(pathToTar);
+		}
+		
 		@Override
-		public TarInputStream getStream(File tar) throws IOException {
+		public TarInputStream getStream() throws IOException {
 			return new TarInputStream(new BufferedInputStream(
 					new FileInputStream(tar)));
 		}
 	}
 	
-	class InputStreamForTarGz implements IInputStreamCreator {
+	class TarInputStreamForTarGz implements ITarInputStreamFactory {
+		File tarGz;
+		
+		public TarInputStreamForTarGz(String pathToTarGz) {
+			tarGz = checkAndReturnFile(pathToTarGz);
+		}
+		
 		@Override
-		public TarInputStream getStream(File tar) throws IOException {
+		public TarInputStream getStream() throws IOException {
 			return new TarInputStream(new BufferedInputStream(
-					new GZIPInputStream(new FileInputStream(tar))));
+					new GZIPInputStream(new FileInputStream(tarGz))));
 		}
 	}
 	
