@@ -21,6 +21,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,37 +30,68 @@ import java.util.zip.GZIPInputStream;
 public class JTar {
 	private static int DEFAULT_BUFFER_SIZE = 4096;
 
-	public void unpackTar(String pathToTar, String pathToTargetDir) throws IOException {
-		unpackFromStream(new TarInputStreamForTar(pathToTar), new File(pathToTargetDir));
-	}
-	
-	public void unpackTarFromStream(ITarInputStreamFactory factory, String pathToTargetDir) throws IOException {
-		unpackFromStream(factory, new File(pathToTargetDir));
+	public void unpackTar(String pathToTar, String pathToTargetDir)
+			throws IOException {
+		unpackFromStream( //
+				new Buffering( //
+						new FileInputStreamFromFile(//
+								checkAndReturnFile(pathToTar))), //
+				new File(pathToTargetDir));
 	}
 
-	public void unpackTarGz(String pathToTarGz, String pathToTargetDir) throws IOException {
-		unpackFromStream(new TarInputStreamForTarGz(pathToTarGz), new File(pathToTargetDir));
+	public void unpackTarFromStream(InputStream inputStream,
+			String pathToTargetDir) throws IOException {
+		unpackFromStream( //
+				new Buffering( //
+						new UseStream(inputStream)), //
+				new File(pathToTargetDir));
 	}
-	
+
+	public void unpackTarGz(String pathToTarGz, String pathToTargetDir)
+			throws IOException {
+		unpackFromStream(
+				//
+				new Buffering( //
+						new GUnzipping( //
+
+								new FileInputStreamFromFile( //
+										checkAndReturnFile(pathToTarGz)))),
+				new File(pathToTargetDir));
+	}
+
+	public void unpackTarGzFromStream(InputStream inputStream,
+			String pathToTargetDir) throws IOException {
+		unpackFromStream( //
+				new Buffering( //
+						new GUnzipping( //
+								new UseStream(inputStream))), //
+				new File(pathToTargetDir));
+	}
+
 	private File checkAndReturnFile(String pathToTar) {
 		File file = new File(pathToTar);
 		if (!file.exists()) {
-			throw new IllegalArgumentException("Tar does not exist and cannot be unpacked: " + file.getAbsolutePath());
+			throw new IllegalArgumentException(
+					"Tar does not exist and cannot be unpacked: "
+							+ file.getAbsolutePath());
 		}
 		if (!file.isFile()) {
-			throw new IllegalArgumentException("Can only unpack files: " + file.getAbsolutePath());
+			throw new IllegalArgumentException("Can only unpack files: "
+					+ file.getAbsolutePath());
 		}
 		if (!file.canRead()) {
-			throw new IllegalArgumentException("Cannot read tar for unpacking: " + file.getAbsolutePath());
+			throw new IllegalArgumentException(
+					"Cannot read tar for unpacking: " + file.getAbsolutePath());
 		}
 		return file;
 	}
-	
-	private void unpackFromStream(ITarInputStreamFactory streamCreator, File targetDir) throws IOException {
+
+	private void unpackFromStream(IInputStreamFactory streamFactory,
+			File targetDir) throws IOException {
 		targetDir.mkdirs();
 		TarInputStream tis = null;
 		try {
-			tis = streamCreator.getStream();
+			tis = new TarInputStream(streamFactory.getStream());
 			extractAll(tis, targetDir);
 		} finally {
 			if (tis != null) {
@@ -68,38 +100,62 @@ public class JTar {
 		}
 	}
 
-	interface ITarInputStreamFactory {
-		TarInputStream getStream() throws IOException;
+	public static interface IInputStreamFactory {
+		InputStream getStream() throws IOException;
 	}
-	
-	class TarInputStreamForTar implements ITarInputStreamFactory {
-		File tar;
-		
-		public TarInputStreamForTar(String pathToTar) {
-			tar = checkAndReturnFile(pathToTar);
+
+	public static class FileInputStreamFromFile implements IInputStreamFactory {
+		File file;
+
+		public FileInputStreamFromFile(File file) {
+			this.file = file;
 		}
-		
+
 		@Override
-		public TarInputStream getStream() throws IOException {
-			return new TarInputStream(new BufferedInputStream(
-					new FileInputStream(tar)));
+		public InputStream getStream() throws IOException {
+			return new FileInputStream(this.file);
 		}
 	}
-	
-	class TarInputStreamForTarGz implements ITarInputStreamFactory {
-		File tarGz;
-		
-		public TarInputStreamForTarGz(String pathToTarGz) {
-			tarGz = checkAndReturnFile(pathToTarGz);
+
+	public static class GUnzipping implements IInputStreamFactory {
+		IInputStreamFactory factory;
+
+		public GUnzipping(IInputStreamFactory factory) {
+			this.factory = factory;
 		}
-		
+
 		@Override
-		public TarInputStream getStream() throws IOException {
-			return new TarInputStream(new BufferedInputStream(
-					new GZIPInputStream(new FileInputStream(tarGz))));
+		public InputStream getStream() throws IOException {
+			return new GZIPInputStream(this.factory.getStream());
 		}
 	}
-	
+
+	public static class Buffering implements IInputStreamFactory {
+		IInputStreamFactory factory;
+
+		public Buffering(IInputStreamFactory factory) {
+			this.factory = factory;
+		}
+
+		@Override
+		public InputStream getStream() throws IOException {
+			return new BufferedInputStream(factory.getStream());
+		}
+	}
+
+	public static class UseStream implements IInputStreamFactory {
+		InputStream is;
+
+		public UseStream(InputStream is) {
+			this.is = is;
+		}
+
+		@Override
+		public InputStream getStream() throws IOException {
+			return is;
+		}
+	}
+
 	private void extractAll(TarInputStream tis, File destFolder)
 			throws IOException {
 		BufferedOutputStream dest = null;
