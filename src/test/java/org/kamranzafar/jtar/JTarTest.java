@@ -13,13 +13,17 @@
  * See the License for the specific language governing permissions and 
  * limitations under the License. 
  * 
- */package org.kamranzafar.jtar;
+ */
+package org.kamranzafar.jtar;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 
 import static org.junit.Assert.*;
 
@@ -31,9 +35,12 @@ import org.junit.Test;
 
 public class JTarTest {
 
-	private static final String CONTENT3 = "KG889vdgjPHQXUEXCqrr";
-	private static final String CONTENT2 = "gTzyuQjfhrnyX9cTBSy";
+	private static final String FILENAME3 = "filename3.txt";
+	private static final String FILENAME2 = "filename2.txt";
+	private static final String FILENAME1 = "filename1.txt";
 	private static final String CONTENT1 = "HPeX2kD5kSTc7pzCDX";
+	private static final String CONTENT2 = "gTzyuQjfhrnyX9cTBSy";
+	private static final String CONTENT3 = "KG889vdgjPHQXUEXCqrr";
 	private static final String PATH_TO_TEST_TAR = "src/test/resources/tartest.tar";
 	private static final String PATH_TO_TEST_TAR_GZ = "src/test/resources/tartest.tar.gz";
 
@@ -42,17 +49,23 @@ public class JTarTest {
 
 	@Before
 	public void setup() throws IOException {
-		sourceDir = new File(
-				Files.createTempDirectory("tartest").toFile(),
-				"source"
-				);
+		sourceDir = new File(Files.createTempDirectory("tartest").toFile(),
+				"source");
 		sourceDir.mkdirs();
 		targetDir = Files.createTempDirectory("tartest").toFile();
 		targetDir.mkdirs();
 	}
 
 	@Test
-	public void givenDir_whenUnpackingTar_thenTarContentsAreThere()
+	public void givenDir_whenUnpackingTarWithFileVariant_shouldProduceTarContents()
+			throws IOException {
+		new JTar().unpackTar(new File(PATH_TO_TEST_TAR), targetDir);
+		assertThat(new File(targetDir, "tartest"),
+				containsExactlyFiles("one", "two", "four", "five", "six"));
+	}
+
+	@Test
+	public void givenDir_whenUnpackingTarWithStringVariant_shouldProduceTarContents()
 			throws IOException {
 		new JTar().unpackTar(PATH_TO_TEST_TAR, targetDir.getAbsolutePath());
 		assertThat(new File(targetDir, "tartest"),
@@ -60,17 +73,18 @@ public class JTarTest {
 	}
 
 	@Test
-	public void givenListOfFiles_whenUnpackingTar_thenTarContentsAreThere()
+	public void givenDir_whenUnpackingTarGzWithStringOverload_shouldProduceTarContents()
 			throws IOException {
-		new JTar().unpackTar(PATH_TO_TEST_TAR, targetDir.getAbsolutePath());
+		new JTar()
+				.unpackTarGz(PATH_TO_TEST_TAR_GZ, targetDir.getAbsolutePath());
 		assertThat(new File(targetDir, "tartest"),
 				containsExactlyFiles("one", "two", "four", "five", "six"));
 	}
 
 	@Test
-	public void givenListOfFiles_whenUnpackingTarGz_thenTarContentsAreThere()
+	public void givenDir_whenUnpackingTarGzWithFileOverload_shouldProduceTarContents()
 			throws IOException {
-		new JTar().unpackTarGz(PATH_TO_TEST_TAR_GZ, targetDir.getAbsolutePath());
+		new JTar().unpackTarGz(new File(PATH_TO_TEST_TAR_GZ), targetDir);
 		assertThat(new File(targetDir, "tartest"),
 				containsExactlyFiles("one", "two", "four", "five", "six"));
 	}

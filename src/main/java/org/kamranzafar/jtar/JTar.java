@@ -21,24 +21,69 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
+/**
+ * <p>Convenience functions to unpack a tar.</p>
+ * 
+ * <p>This is merely a wrapper around some of the low-level functionality of JTar.
+ * If there is no method here that does what you want, use the low-level API as.</p>
+ * 
+ * <p><i>Currently, only unpacking complete archives is supported.</i></p>
+ */
 public class JTar {
 	private static int DEFAULT_BUFFER_SIZE = 4096;
 
+	/**
+	 * Unpack the uncompressed tar archive into the target directory!
+	 * 
+	 * @param pathToTar
+	 *            path to the tar archive file. Valid is whatever
+	 *            <code>new File()</code> accepts.
+	 * @param pathToTargetDir
+	 *            path to the directory into which to unpack the archives
+	 *            contents to. Valid is whatever <code>new File()</code>
+	 *            accepts.
+	 * @throws IllegalArgumentException
+	 *             if the archive file is not a readable file
+	 * @throws IOException
+	 * @see {@link #unpackTar(File, File)}
+	 */
 	public void unpackTar(String pathToTar, String pathToTargetDir)
 			throws IOException {
-		unpackFromStream( //
-				new Buffering( //
-						new FileInputStreamFromFile(//
-								checkAndReturnFile(pathToTar))), //
+		unpackTarUsingFiles( //
+				checkAndReturnArchiveFile(pathToTar), //
 				new File(pathToTargetDir));
 	}
 
+	/**
+	 * Unpack the uncompressed tar archive into the target directory!
+	 * 
+	 * @param tar
+	 *            the archive file to unpack.
+	 * @param targetDir
+	 *            the directory into which to unpack the archive.
+	 * @throws IOException
+	 */
+	public void unpackTar(File tar, File targetDir) throws IOException {
+		unpackTarUsingFiles(tar, targetDir);
+	}
+
+	/**
+	 * Unpack the uncompressed tar archive into the target directory!
+	 * 
+	 * @param inputStream
+	 *            the archive to unpack.
+	 * @param pathToTargetDir
+	 *            path to the directory into which to unpack the archives
+	 *            contents to. Valid is whatever <code>new File()</code>
+	 *            accepts.
+	 * @throws IOException
+	 * @see {@link #unpackTar(File, File)}
+	 */
 	public void unpackTarFromStream(InputStream inputStream,
 			String pathToTargetDir) throws IOException {
 		unpackFromStream( //
@@ -47,18 +92,54 @@ public class JTar {
 				new File(pathToTargetDir));
 	}
 
+	/**
+	 * Unpack the gzip-compressed tar archive into the target directory!
+	 * 
+	 * @param pathToTar
+	 *            path to the tar archive file. Valid is whatever
+	 *            <code>new File()</code> accepts.
+	 * @param pathToTargetDir
+	 *            path to the directory into which to unpack the archives
+	 *            contents to. Valid is whatever <code>new File()</code>
+	 *            accepts.
+	 * @throws IllegalArgumentException
+	 *             if the archive file is not a readable file
+	 * @throws IOException
+	 * @see {@link #unpackTarGz(File, File)}
+	 */
 	public void unpackTarGz(String pathToTarGz, String pathToTargetDir)
 			throws IOException {
-		unpackFromStream(
-				//
-				new Buffering( //
-						new GUnzipping( //
-
-								new FileInputStreamFromFile( //
-										checkAndReturnFile(pathToTarGz)))),
+		unpackTarGzUsingFiles( //
+				checkAndReturnArchiveFile(pathToTarGz), //
 				new File(pathToTargetDir));
 	}
 
+	/**
+	 * Unpack the gzip-compressed tar archive into the target directory!
+	 * 
+	 * @param tarGz
+	 *            the archive file to unpack.
+	 * @param targetDir
+	 *            the directory into which to unpack the archive.
+	 * @throws IOException
+	 */
+	public void unpackTarGz(File tarGz, File targetDir) throws IOException {
+		unpackTarGzUsingFiles(tarGz, targetDir);
+	}
+
+	/**
+	 * Unpack the gzip-compressed tar archive into the target directory!
+	 * 
+	 * @param inputStream
+	 *            the archive to unpack.
+	 * @param pathToTargetDir
+	 *            path to the directory into which to unpack the archives
+	 *            contents to. Valid is whatever <code>new File()</code>
+	 *            accepts.
+	 * @throws IOException
+	 * @see {@link #unpackTarFromStream(InputStream, String)} for the
+	 *      uncompressed variant
+	 */
 	public void unpackTarGzFromStream(InputStream inputStream,
 			String pathToTargetDir) throws IOException {
 		unpackFromStream( //
@@ -68,7 +149,23 @@ public class JTar {
 				new File(pathToTargetDir));
 	}
 
-	private File checkAndReturnFile(String pathToTar) {
+	private void unpackTarUsingFiles(File tar, File targetDir)
+			throws IOException {
+		unpackFromStream( //
+				new Buffering( //
+						new FileInputStreamFromFile(tar) //
+				), targetDir);
+	}
+
+	private void unpackTarGzUsingFiles(File tarGz, File targetDir)
+			throws IOException {
+		unpackFromStream( //
+				new Buffering( //
+						new GUnzipping(new FileInputStreamFromFile(tarGz) //
+						)), targetDir);
+	}
+
+	private File checkAndReturnArchiveFile(String pathToTar) {
 		File file = new File(pathToTar);
 		if (!file.exists()) {
 			throw new IllegalArgumentException(
